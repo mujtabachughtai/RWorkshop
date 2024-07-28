@@ -1,0 +1,253 @@
+---
+title: "R Workshop 2024"
+author: "Muji Chughtai"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+---
+
+# Base Functions in R
+
+```{r}
+# Arithmetic
+17 + 18
+5 * 4
+100/15
+4^3
+
+# Statistics (percentage below a z-score of -1)
+pnorm(q = -1, mean = 0, sd = 1, lower.tail = TRUE)
+```
+
+```{r}
+# Using variables
+a <- 3
+b <- 4
+c <- sqrt(a^2 + b^2)
+c
+
+a <- c(3, 6, 9, 12, 15)
+b <- c(4, 8, 12, 16, 20)
+perfect.hyps <- sqrt(a^2 + b^2)
+perfect.hyps
+```
+
+
+```{r}
+# Using variables to see percentiles on standardized tests
+
+## ACT
+pop.mu = 20.8
+pop.sd = 5.8
+
+my.score <- 30
+
+pnorm(q = my.score, mean = pop.mu, sd = pop.sd)
+pnorm(my.score, pop.mu, pop.sd)
+
+## GRE
+pop.mu = 150
+pop.sd = 8.5
+
+my.score <- 162
+
+pnorm(my.score, pop.mu, pop.sd)
+```
+
+
+# Load in Packages and Required Packages
+
+```{r, message = FALSE}
+library(tidyverse)
+RawData <- read.csv("RWorkshopData.csv")
+```
+
+# Data Cleaning
+
+## Remove Unnecessary Rows
+
+```{r}
+# Removes rows 1 through 2 - Note the comma after the parentheses
+CleanerData <- RawData[-c(1:2),]
+```
+
+## Remove Unnecessary Columns
+
+```{r}
+# Retains only the columns that we need
+CleanData <- CleanerData %>%
+  select(FirstName, LastName, Region, Birthday.1_1, Birthday.2_1, Birthday.3_1,
+         AgeYears, HeightInches)
+```
+
+## Calculating Lengths of Names
+```{r}
+# Calculates the number of characters (letters) in each name
+Name.Data <- CleanData %>%
+  mutate(FirstNameLength = nchar(FirstName),
+         LastNameLength = nchar(LastName))
+```
+
+## Simplifying `Region`
+```{r}
+# Shortens the region responses to just the region (removing the states)
+Region.Data <- Name.Data %>%
+  mutate(Region = case_when(startsWith(Region, "Northeast") ~ "Northeast",
+                            startsWith(Region, "Midwest") ~ "Midwest",
+                            startsWith(Region, "Southeast") ~ "Southeast",
+                            startsWith(Region, "Southwest") ~ "Southwest",
+                            startsWith(Region, "West") ~ "West",
+                            startsWith(Region, "International") ~ "International"))
+```
+
+## Simplifying `Birthday`
+```{r}
+# Combines the three birthday variables into a single one and converts to R date format
+Bday.Data <- Region.Data %>%
+  mutate(Birthday = paste0(Birthday.1_1, " ", Birthday.2_1, ", ", Birthday.3_1)) %>%
+  mutate(Birthday = as.Date(Birthday, format = "%B %d, %Y")
+         ) %>%
+  select(-Birthday.1_1, -Birthday.2_1, -Birthday.3_1)
+```
+
+## Calculating Age in Days and Height in CMs
+```{r}
+# Subtracting current date from birthday, ensuring height is numeric and ageyears is numeric, and calculating cms
+FinalData <- Bday.Data %>%
+  mutate(AgeDays = as.numeric(difftime(Sys.Date(), Birthday, units = "days")),
+         HeightInches = as.numeric(HeightInches),
+         HeightInches = ifelse(HeightInches < 12, HeightInches*12, HeightInches),
+         AgeYears = as.numeric(AgeYears),
+         HeightCMs = HeightInches*2.54)
+```
+
+# Data Anlysis and Visualization
+
+## Comparing Height in CM and Height in Inches
+```{r}
+# Correlation
+cor(FinalData$HeightCMs, FinalData$HeightInches, method = "pearson")
+
+# Linear Regression
+model1 <- glm(HeightCMs ~ HeightInches, data = FinalData)
+summary(model1)
+```
+
+### Visualizing this Relationship
+```{r}
+# Density of predictor variable (IV)
+FinalData %>%
+  ggplot(aes(x = HeightInches)) +
+  geom_density(fill = "#BDD7E7") + theme_minimal() +
+  labs(title = "Height in Inches of Summer 2024 Interns",
+         x = "Height in Inches")
+
+# Linear relationship of IV and DV
+FinalData %>%
+  ggplot(aes(x = HeightInches, y = HeightCMs)) +
+  geom_point() +
+  geom_smooth(method = "lm")+
+  labs(title = "The Perfect Linear Relationship between Heigh in CMs and Height in Inches",
+       x = "Height in Inches",
+       y = "Height in CMs") +
+  theme_minimal()
+```
+
+## Comparing Age in Days and Age in Years
+```{r}
+# Correlation
+cor(FinalData$AgeDays, FinalData$AgeYears, method = "pearson")
+
+# Linear Regression
+model2 <- glm(AgeDays ~ AgeYears, data = FinalData)
+summary(model2)
+```
+
+### Visualizing this Relationship
+```{r}
+# Density of predictor variable (IV)
+FinalData %>%
+  ggplot(aes(x = AgeYears)) +
+  geom_density(fill = "#BDD7E7") + theme_minimal() +
+  labs(title = "Age in Years of Summer 2024 Interns",
+         x = "Age in Years")
+
+# Linear relationship of IV and DV
+FinalData %>%
+  ggplot(aes(x = AgeYears, y = AgeDays)) +
+  geom_point() +
+  geom_smooth(method = "lm")+
+  labs(title = "Age in Years by Age in days",
+       x = "Age in Years",
+       y = "Age in Days") +
+  theme_minimal()
+```
+
+## Comparing Length of First Names and Last Names
+```{r}
+# Correlation
+cor(FinalData$FirstNameLength, FinalData$LastNameLength, method = "pearson")
+
+# Linear Regression
+model2 <- glm(LastNameLength ~ FirstNameLength, data = FinalData)
+summary(model2)
+```
+
+### Visualizing this Relationship
+```{r}
+# Density of predictor variable (IV)
+FinalData %>%
+  ggplot(aes(x = FirstNameLength)) +
+  geom_density(fill = "#BDD7E7") + theme_minimal() +
+  labs(title = "Length of First Names of Summer 2024 Interns",
+         x = "Length of First Names")
+
+# Linear relationship of IV and DV
+FinalData %>%
+  ggplot(aes(x = FirstNameLength, y = LastNameLength)) +
+  geom_jitter() + 
+  geom_smooth(method = "lm")+
+  labs(title = "Last Name Length by First Name Length",
+       x = "First Name Length",
+       y = "Last Name Length") +
+  theme_minimal()
+```
+
+## Height by Region
+```{r}
+# Table
+height.by.region <- FinalData %>%
+  group_by(Region) %>%
+  summarise(Mean.Height = mean(HeightCMs),
+            N = n()) %>%
+  arrange(desc(Mean.Height))
+
+knitr::kable(height.by.region)
+```
+
+```{r}
+# Linear Model (ANOVA)
+## Reordering the levels in order of descending mean
+FinalData$Region <- factor(FinalData$Region, levels = height.by.region$Region)
+
+model3 <- glm(HeightCMs ~ Region, data = FinalData)
+summary(model3)
+```
+
+### Visualizing this Relationship
+
+```{r}
+FinalData %>%
+  ggplot(aes(x = Region, y = HeightCMs, fill = Region)) +
+  scale_fill_brewer(palette = "Spectral") +
+  geom_boxplot() +
+  labs(title = "Heigh in CMs by Region",
+       x = "Region",
+       y = "Height in Cms") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
